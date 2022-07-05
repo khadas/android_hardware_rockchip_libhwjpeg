@@ -181,27 +181,33 @@ void MpiJpegEncoder::updateEncodeQuality(int quant)
     if (mEncodeQuality == quant)
         return;
 
-    if (quant < 0 || quant > 10) {
-        ALOGW("invalid quality level %d and set to default 8 default", quant);
-        quant = 8;
+    if (quant < 10 || quant > 99) {
+        ALOGW("invalid quality %d(10 ~ 99), set 80 default", quant);
+        quant = 80;
     }
 
     ALOGD("update encode quality - %d", quant);
 
     mpp_enc_cfg_init(&cfg);
+    mMpi->control(mMppCtx, MPP_ENC_GET_CFG, cfg);
 
-    mpp_enc_cfg_set_s32(cfg, "codec:type", MPP_VIDEO_CodingMJPEG);
+    /* q_factor range from 1 ~ 99 */
     mpp_enc_cfg_set_s32(cfg, "rc:mode", MPP_ENC_RC_MODE_FIXQP);
-
-    /* range from 1~10 */
-    mpp_enc_cfg_set_s32(cfg, "jpeg:change", MPP_ENC_JPEG_CFG_CHANGE_QP);
-    mpp_enc_cfg_set_s32(cfg, "jpeg:quant", quant);
+    mpp_enc_cfg_set_s32(cfg, "jpeg:q_factor", quant);
+    mpp_enc_cfg_set_s32(cfg, "jpeg:qf_max", 99);
+    mpp_enc_cfg_set_s32(cfg, "jpeg:qf_min", 1);
 
     ret = mMpi->control(mMppCtx, MPP_ENC_SET_CFG, cfg);
-    if (MPP_OK != ret)
+    if (MPP_OK != ret) {
         ALOGE("failed to set encode quality - %d", quant);
-    else
+    } else {
         mEncodeQuality = quant;
+    }
+
+    if (cfg) {
+        mpp_enc_cfg_deinit(cfg);
+        cfg = NULL;
+    }
 }
 
 bool MpiJpegEncoder::updateEncodeCfg(int width, int height,
@@ -241,6 +247,7 @@ bool MpiJpegEncoder::updateEncodeCfg(int width, int height,
     prep_cfg.ver_stride   = ver_stride;
     prep_cfg.format       = (MppFrameFormat)fmt;
     prep_cfg.rotation     = MPP_ENC_ROT_0;
+
     ret = mMpi->control(mMppCtx, MPP_ENC_SET_PREP_CFG, &prep_cfg);
     if (MPP_OK != ret) {
         ALOGE("mpi control enc set prep cfg failed ret %d", ret);
@@ -533,14 +540,14 @@ MPP_RET MpiJpegEncoder::cropThumbImage(EncInInfo *aInfoIn, void* outAddr)
     float hScale = (float)src_width / dst_width;
     float vScale = (float)src_height / dst_height;
 
-    // librga can't support scale largger than 16
-    if (hScale > 16 || vScale > 16) {
+    // librga can't support scale largger than 8
+    if (hScale > 8 || vScale > 8) {
         int scale_width, scale_height;
 
         ALOGV("Big YUV scale[%f,%f], will crop twice instead.", hScale, vScale);
 
-        scale_width = ALIGN(dst_width + (src_width - dst_width) / 2, 2);
-        scale_height = ALIGN(dst_height + (src_height - dst_height) / 2, 2);
+        scale_width = ALIGN(src_width / 8, 2);
+        scale_height = ALIGN(src_height / 8, 2);
 
         ret = CommonUtil::cropImage(src_addr, dst_addr,
                                     src_width, src_height,
@@ -643,7 +650,7 @@ bool MpiJpegEncoder::encodeImageFD(EncInInfo *aInfoIn, EncOutInfo *aOutInfo)
         mPackets->add_at_tail(&outPkt, sizeof(outPkt));
         mPackets->unlock();
 
-        ALOGV("encod frame get output size %d", pOutPkt->size);
+        ALOGD("encod frame get output size %d", pOutPkt->size);
     }
 
 ENCODE_OUT:
@@ -742,7 +749,7 @@ bool MpiJpegEncoder::encodeThumb(EncInInfo *aInfoIn, uint8_t **data, int *len)
 
         mpp_packet_deinit(&outPkt);
 
-        ALOGV("get thumb jpg output size %d", length);
+        ALOGD("get thumb jpg output size %d", length);
     }
 
 ENCODE_OUT:
@@ -875,6 +882,7 @@ TASK_OUT:
         outInfo->outBufLen = 0;
     }
 
+    mFrameCount++;
     time_end_record("encodeImage");
 
     return ret;
