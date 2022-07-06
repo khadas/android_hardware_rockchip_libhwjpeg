@@ -619,17 +619,22 @@ bool MpiJpegEncoder::encodeImageFD(EncInInfo *aInfoIn, EncOutInfo *aOutInfo)
     }
 
     {
-        /* try import output fd to vpu */
-        MppBufferInfo outputCommit;
-        memset(&outputCommit, 0, sizeof(MppBufferInfo));
-        outputCommit.type = MPP_BUFFER_TYPE_ION;
-        outputCommit.size = aOutInfo->outBufLen;
-        outputCommit.fd = aOutInfo->outputPhyAddr;
+        if (1) {
+            // TODO TMP: rk3588: use mpp internal buffer to avoid cache issue.
+            mpp_buffer_get(mMemGroup, &outPktBuf, width * height);
+        } else {
+            /* try import output fd to vpu */
+            MppBufferInfo outputCommit;
+            memset(&outputCommit, 0, sizeof(MppBufferInfo));
+            outputCommit.type = MPP_BUFFER_TYPE_ION;
+            outputCommit.size = aOutInfo->outBufLen;
+            outputCommit.fd = aOutInfo->outputPhyAddr;
 
-        ret = mpp_buffer_import(&outPktBuf, &outputCommit);
-        if (MPP_OK != ret) {
-            ALOGE("failed to import output buffer");
-            goto ENCODE_OUT;
+            ret = mpp_buffer_import(&outPktBuf, &outputCommit);
+            if (MPP_OK != ret) {
+                ALOGE("failed to import output buffer");
+                goto ENCODE_OUT;
+            }
         }
 
         mpp_packet_init_with_buffer(&outPkt, outPktBuf);
