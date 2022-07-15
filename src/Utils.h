@@ -39,7 +39,7 @@ public:
     static MPP_RET storeFileData(const char *file_name, char **data, size_t *length);
 
     /* yuv image related operations */
-    static MPP_RET cropImage(char *src, char *dst,
+    static MPP_RET cropImage(int src, int dst,
                              int src_width, int src_height,
                              int src_wstride, int src_hstride,
                              int dst_width, int dst_height);

@@ -526,16 +526,16 @@ MPP_RET MpiJpegEncoder::runFrameEnc(MppFrame inFrm, MppPacket outPkt)
     return MPP_NOK;
 }
 
-MPP_RET MpiJpegEncoder::cropThumbImage(EncInInfo *aInfoIn, void* outAddr)
+MPP_RET MpiJpegEncoder::cropThumbImage(EncInInfo *aInfoIn, int outAddr)
 {
     MPP_RET ret = MPP_OK;
 
-    char *src_addr   = (char*)aInfoIn->inputVirAddr;
-    char *dst_addr   = (char*)outAddr;
-    int   src_width  = ALIGN(aInfoIn->width, 2);
-    int   src_height = ALIGN(aInfoIn->height, 2);
-    int   dst_width  = ALIGN(aInfoIn->thumbWidth, 2);
-    int   dst_height = ALIGN(aInfoIn->thumbHeight, 2);
+    int src_addr   = aInfoIn->inputPhyAddr;
+    int dst_addr   = outAddr;
+    int src_width  = ALIGN(aInfoIn->width, 2);
+    int src_height = ALIGN(aInfoIn->height, 2);
+    int dst_width  = ALIGN(aInfoIn->thumbWidth, 2);
+    int dst_height = ALIGN(aInfoIn->thumbHeight, 2);
 
     float hScale = (float)src_width / dst_width;
     float vScale = (float)src_height / dst_height;
@@ -544,7 +544,7 @@ MPP_RET MpiJpegEncoder::cropThumbImage(EncInInfo *aInfoIn, void* outAddr)
     if (hScale > 8 || vScale > 8) {
         int scale_width, scale_height;
 
-        ALOGV("Big YUV scale[%f,%f], will crop twice instead.", hScale, vScale);
+        ALOGD("Big YUV scale[%f,%f], will crop twice instead.", hScale, vScale);
 
         scale_width = ALIGN(src_width / 8, 2);
         scale_height = ALIGN(src_height / 8, 2);
@@ -558,7 +558,7 @@ MPP_RET MpiJpegEncoder::cropThumbImage(EncInInfo *aInfoIn, void* outAddr)
             return ret;
         }
 
-        src_addr = dst_addr = (char*)outAddr;
+        src_addr = dst_addr = outAddr;
         src_width = scale_width;
         src_height = scale_height;
     }
@@ -676,7 +676,7 @@ bool MpiJpegEncoder::encodeThumb(EncInInfo *aInfoIn, uint8_t **data, int *len)
     /* input frame and output packet */
     MppFrame   inFrm     = NULL;
     MppBuffer  inFrmBuf  = NULL;
-    void      *inFrmPtr  = NULL;
+    int        inFrmFd   = 0;
     MppPacket  outPkt    = NULL;
     MppBuffer  outPktBuf = NULL;
 
@@ -705,9 +705,9 @@ bool MpiJpegEncoder::encodeThumb(EncInInfo *aInfoIn, uint8_t **data, int *len)
         float hScale = (float)aInfoIn->width / aInfoIn->thumbWidth;
         float vScale = (float)aInfoIn->height / aInfoIn->thumbHeight;
 
-        if (hScale > 16 || vScale > 16) {
-            allocWidth = width + (aInfoIn->width - width) / 2;
-            allocHeight = height + (aInfoIn->height - height) / 2;
+        if (hScale > 8 || vScale > 8) {
+            allocWidth = aInfoIn->width / 8;
+            allocHeight = aInfoIn->height / 8;
         }
     }
 
@@ -718,10 +718,10 @@ bool MpiJpegEncoder::encodeThumb(EncInInfo *aInfoIn, uint8_t **data, int *len)
         goto ENCODE_OUT;
     }
 
-    inFrmPtr = mpp_buffer_get_ptr(inFrmBuf);
+    inFrmFd = mpp_buffer_get_fd(inFrmBuf);
 
     /* crop raw buffer to the size of thumbnail */
-    ret = cropThumbImage(aInfoIn, inFrmPtr);
+    ret = cropThumbImage(aInfoIn, inFrmFd);
     if (MPP_OK != ret) {
         ALOGE("failed to crop yuv image before encode thumb.");
         goto ENCODE_OUT;

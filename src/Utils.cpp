@@ -221,7 +221,7 @@ MPP_RET CommonUtil::storeFileData(const char *file_name, char **data, size_t *le
     return MPP_OK;
 }
 
-MPP_RET CommonUtil::cropImage(char *src, char *dst,
+MPP_RET CommonUtil::cropImage(int src, int dst,
                               int src_width, int src_height,
                               int src_wstride, int src_hstride,
                               int dst_width, int dst_height)
@@ -241,13 +241,11 @@ MPP_RET CommonUtil::cropImage(char *src, char *dst,
 
     memset(&rgasrc, 0, sizeof(rga_info_t));
     rgasrc.fd = -1;
-    rgasrc.mmuFlag = 1;
-    rgasrc.virAddr = src;
+    rgasrc.fd = src;
 
     memset(&rgadst, 0, sizeof(rga_info_t));
     rgadst.fd = -1;
-    rgadst.mmuFlag = 1;
-    rgadst.virAddr = dst;
+    rgadst.fd = dst;
 
     rga_set_rect(&rgasrc.rect, 0, 0, src_width, src_height,
                  src_wstride, src_hstride, srcFormat);
