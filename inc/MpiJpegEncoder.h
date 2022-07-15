@@ -143,7 +143,7 @@ private:
 
     MPP_RET runFrameEnc(MppFrame inFrm, MppPacket outPkt);
 
-    MPP_RET cropThumbImage(EncInInfo *aInfoIn, void* outAddr);
+    MPP_RET cropThumbImage(EncInInfo *aInfoIn, int outAddr);
 
     /* encode raw image by commit input fd to the encoder */
     bool encodeImageFD(EncInInfo *aInfoIn, EncOutInfo *aInfoOut);

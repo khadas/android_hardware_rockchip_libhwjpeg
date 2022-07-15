@@ -253,14 +253,14 @@ void MpiJpegDecoder::cropOutputFrameIfNeccessary(OutputFrame_t *frameOut)
     if (!mOutputCrop)
         return;
 
-    char *src_addr    = frameOut->MemVirAddr;
-    char *dst_addr    = frameOut->MemVirAddr;
-    int   src_wstride = frameOut->FrameWidth;
-    int   src_hstride = frameOut->FrameHeight;
-    int   src_width   = ALIGN(frameOut->DisplayWidth, 2);
-    int   src_height  = ALIGN(frameOut->DisplayHeight, 2);
-    int   dst_width   = ALIGN(src_width, 8);
-    int   dst_height  = ALIGN(src_height, 8);
+    int src_addr    = frameOut->MemPhyAddr;
+    int dst_addr    = frameOut->MemPhyAddr;
+    int src_wstride = frameOut->FrameWidth;
+    int src_hstride = frameOut->FrameHeight;
+    int src_width   = ALIGN(frameOut->DisplayWidth, 2);
+    int src_height  = ALIGN(frameOut->DisplayHeight, 2);
+    int dst_width   = ALIGN(src_width, 8);
+    int dst_height  = ALIGN(src_height, 8);
 
     if (src_width == src_wstride && src_height == src_hstride) {
         // NO NEED
