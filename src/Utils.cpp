@@ -25,14 +25,30 @@
 #include <sys/mman.h>
 #include <string.h>
 #include <errno.h>
-#include <drmrga.h>
-#include <RgaApi.h>
 #include <fcntl.h>
 
 #include "mpp_mem.h"
 #include "Utils.h"
+#include "RockchipRga.h"
+#include "im2d.h"
 
-static int g_rga_init = 0;
+using namespace android;
+
+rga_buffer_handle_t importRgaBuffer(int32_t width, int32_t height,
+                                        int32_t format, int32_t fd) {
+    im_handle_param_t imParam;
+    memset(&imParam, 0, sizeof(im_handle_param_t));
+
+    imParam.width  = width;
+    imParam.height = height;
+    imParam.format = format;
+
+    return importbuffer_fd(fd, &imParam);
+}
+
+void freeRgaBuffer(rga_buffer_handle_t handle) {
+    releasebuffer_handle(handle);
+}
 
 void CommonUtil::dumpMppFrameToFile(MppFrame frame, FILE *file)
 {
@@ -227,36 +243,40 @@ MPP_RET CommonUtil::cropImage(int src, int dst,
                               int dst_width, int dst_height)
 {
     int ret = 0;
-    void *rgaCtx = NULL;
     int srcFormat, dstFormat;
     rga_info_t rgasrc, rgadst;
+    rga_buffer_handle_t srcHdl;
+    rga_buffer_handle_t dstHdl;
 
-    if (!g_rga_init) {
-        RgaInit(&rgaCtx);
-        g_rga_init = 1;
-        ALOGD("init rga ctx done");
-    }
+    RockchipRga& rkRga(RockchipRga::get());
 
     srcFormat = dstFormat = HAL_PIXEL_FORMAT_YCrCb_NV12;
 
     memset(&rgasrc, 0, sizeof(rga_info_t));
-    rgasrc.fd = -1;
-    rgasrc.fd = src;
-
     memset(&rgadst, 0, sizeof(rga_info_t));
-    rgadst.fd = -1;
-    rgadst.fd = dst;
 
+    srcHdl = importRgaBuffer(src_width, src_height, srcFormat, src);
+    dstHdl = importRgaBuffer(dst_width, dst_height, dstFormat, dst);
+    if (!srcHdl || !dstHdl) {
+        ALOGE("failed to import rga buffer");
+        return MPP_NOK;
+    }
+
+    rgasrc.handle = srcHdl;
+    rgadst.handle = dstHdl;
     rga_set_rect(&rgasrc.rect, 0, 0, src_width, src_height,
                  src_wstride, src_hstride, srcFormat);
     rga_set_rect(&rgadst.rect, 0, 0, dst_width, dst_height,
                  dst_width, dst_height, dstFormat);
 
-    ret = RgaBlit(&rgasrc, &rgadst, NULL);
+    ret = rkRga.RkRgaBlit(&rgasrc, &rgadst, NULL);
     if (ret) {
         ALOGE("failed to rga blit ret %d", ret);
         return MPP_NOK;
     }
+
+    freeRgaBuffer(srcHdl);
+    freeRgaBuffer(dstHdl);
 
     return MPP_OK;
 }
