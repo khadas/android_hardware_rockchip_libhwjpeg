@@ -53,6 +53,11 @@ cc_library_shared {
         "librga",
     ],
 
+    include_dirs: [
+        "hardware/rockchip/librga/include",
+        "hardware/rockchip/librga/im2d_api",
+    ],
+
     header_libs: [
         "libhwjpeg_headers",
         "libhardware_headers",

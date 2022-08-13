@@ -546,7 +546,7 @@ MPP_RET MpiJpegEncoder::cropThumbImage(EncInInfo *aInfoIn, int outAddr)
 
         ALOGD("Big YUV scale[%f,%f], will crop twice instead.", hScale, vScale);
 
-        scale_width = ALIGN(src_width / 8, 2);
+        scale_width = ALIGN(src_width / 8, 16);
         scale_height = ALIGN(src_height / 8, 2);
 
         ret = CommonUtil::cropImage(src_addr, dst_addr,

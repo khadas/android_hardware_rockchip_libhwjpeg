@@ -32,7 +32,8 @@ LOCAL_SHARED_LIBRARIES := \
 LOCAL_C_INCLUDES += \
 	$(LOCAL_PATH)/inc/mpp_inc/ \
 	$(LOCAL_PATH)/inc \
-	$(TOP)/hardware/rockchip/librga \
+	$(TOP)/hardware/rockchip/librga/include \
+	$(TOP)/hardware/rockchip/librga/im2d_api \
 
 ifeq (1, $(strip $(shell expr $(PLATFORM_SDK_VERSION) \>= 29)))
 LOCAL_SHARED_LIBRARIES += \
