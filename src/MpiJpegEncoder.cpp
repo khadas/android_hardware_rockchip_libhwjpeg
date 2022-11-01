@@ -810,6 +810,7 @@ bool MpiJpegEncoder::encode(EncInInfo *inInfo, EncOutInfo *outInfo)
 
     memset(&eParam, 0, sizeof(ExifParam));
     eParam.exif_info = (RkExifInfo*)inInfo->exifInfo;
+    eParam.exif_info->gpsInfo = (RkGPSInfo *)inInfo->gpsInfo;
 
     if (inInfo->doThumbNail) {
         ret = encodeThumb(inInfo, &eParam.thumb_data, &eParam.thumb_size);

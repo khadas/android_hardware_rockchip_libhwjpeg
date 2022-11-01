@@ -151,7 +151,7 @@ void exif_setup_rational_entry(ExifEntry *entry, ExifTag tag,
     entry->data = (unsigned char*)malloc(size);
 
     for (i = 0; i < entry->components; i++) {
-        exif_set_rational(entry->data, order, rat[i]);
+        exif_set_rational(entry->data + exif_format_get_size(format) * i, order, rat[i]);
     }
 }
 
