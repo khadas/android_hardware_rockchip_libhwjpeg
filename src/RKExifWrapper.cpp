@@ -54,7 +54,7 @@ static void parseExifInfo(RkExifInfo *exifInfo, ExifData *edata)
                      exifInfo->modelchars, exifInfo->modelstr);
     /* --- 4). Orientation */
     exif_setup_long_entry(&ifd->entries[ifd->entry_count++],
-                          EXIF_TAG_ORIENTATION, EXIF_FORMAT_SHORT,
+                          EXIF_TAG_ORIENTATION, EXIF_FORMAT_LONG,
                           0x01, edata->order, exifInfo->Orientation);
     /* --- 5). XResolution */
     rat[0].numerator = 72;
@@ -97,8 +97,8 @@ static void parseExifInfo(RkExifInfo *exifInfo, ExifData *edata)
                            0x01, edata->order, exifInfo->ISOSpeedRatings);
     /* --- --- --- 9.4). Exif Version */
     exif_setup_long_entry(&ifd->entries[ifd->entry_count++],
-                          EXIF_TAG_EXIF_VERSION, EXIF_FORMAT_UNDEFINED,
-                          0x04, edata->order, 0x30323230);
+                          EXIF_TAG_EXIF_VERSION, EXIF_FORMAT_LONG,
+                          0x01, edata->order, 0x30323230);
     /* --- --- --- 9.5). DataTime Original */
     exif_setup_entry(&ifd->entries[ifd->entry_count++],
                      EXIF_TAG_DATE_TIME_ORIGINAL, EXIF_FORMAT_ASCII,
@@ -109,8 +109,8 @@ static void parseExifInfo(RkExifInfo *exifInfo, ExifData *edata)
                      0x14, exifInfo->DateTime);
     /* --- --- --- 9.7). ComponentsConfiguration */
     exif_setup_long_entry(&ifd->entries[ifd->entry_count++],
-                          EXIF_TAG_COMPONENTS_CONFIGURATION, EXIF_FORMAT_UNDEFINED,
-                          0x04, edata->order, 0x00030201); // YCbCr-format
+                          EXIF_TAG_COMPONENTS_CONFIGURATION, EXIF_FORMAT_LONG,
+                          0x01, edata->order, 0x00030201); // YCbCr-format
     /* --- --- --- 9.8). CompressedBitsPerPixel */
     rat[0].numerator = exifInfo->CompressedBitsPerPixel.num;
     rat[0].denominator = exifInfo->CompressedBitsPerPixel.denom;
@@ -207,7 +207,7 @@ static void parseExifInfo(RkExifInfo *exifInfo, ExifData *edata)
                            0x01, edata->order, exifInfo->SensingMethod);
     /* --- --- --- 9.27). FileSource */
     exif_setup_short_entry(&ifd->entries[ifd->entry_count++],
-                           EXIF_TAG_FILE_SOURCE, EXIF_FORMAT_UNDEFINED,
+                           EXIF_TAG_FILE_SOURCE, EXIF_FORMAT_SHORT,
                            0x01, edata->order, exifInfo->FileSource);
     /* --- --- --- 9.28). CustomRendered */
     exif_setup_short_entry(&ifd->entries[ifd->entry_count++],
