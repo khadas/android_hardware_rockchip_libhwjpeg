@@ -159,6 +159,7 @@ FAIL:
         mpp_destroy(mMppCtx);
         mMppCtx = NULL;
     }
+
     return false;
 }
 
@@ -327,7 +328,7 @@ bool MpiJpegEncoder::encodeFrame(char *data, OutputPacket_t *aPktOut)
     ret = mpp_buffer_get(mMemGroup, &inFrmBuf, size);
     if (MPP_OK != ret) {
         ALOGE("failed to get buffer for input frame ret %d", ret);
-        goto ENCODE_OUT;
+        goto END;
     }
 
     inFrmPtr = mpp_buffer_get_ptr(inFrmBuf);
@@ -339,12 +340,12 @@ bool MpiJpegEncoder::encodeFrame(char *data, OutputPacket_t *aPktOut)
                                 mHorStride, mVerStride,
                                 (MppFrameFormat)mFmt);
     if (MPP_OK != ret)
-        goto ENCODE_OUT;
+        goto END;
 
     ret = mpp_frame_init(&inFrm);
     if (MPP_OK != ret) {
         ALOGE("failed to init input frame");
-        goto ENCODE_OUT;
+        goto END;
     }
 
     mpp_frame_set_width(inFrm, mWidth);
@@ -371,13 +372,13 @@ bool MpiJpegEncoder::encodeFrame(char *data, OutputPacket_t *aPktOut)
     ret = mMpi->encode_put_frame(mMppCtx, inFrm);
     if (MPP_OK != ret) {
         ALOGE("failed to put input frame");
-        goto ENCODE_OUT;
+        goto END;
     }
 
     ret = mMpi->encode_get_packet(mMppCtx, &outPkt);
     if (MPP_OK != ret) {
         ALOGE("failed to get output packet");
-        goto ENCODE_OUT;
+        goto END;
     }
 
     if (outPkt) {
@@ -408,7 +409,7 @@ bool MpiJpegEncoder::encodeFrame(char *data, OutputPacket_t *aPktOut)
         ALOGV("encoded one frame get output size %d", aPktOut->size);
     }
 
-ENCODE_OUT:
+END:
     if (inFrm) {
         mpp_frame_deinit(&inFrm);
         inFrm = NULL;
@@ -439,11 +440,11 @@ bool MpiJpegEncoder::encodeFile(const char *inputFile, const char *outputFile)
 
     ret = CommonUtil::storeFileData(inputFile, &buf, &lenth);
     if (MPP_OK != ret)
-        goto ENCODE_OUT;
+        goto END;
 
     if (!encodeFrame(buf, &pktOut)) {
         ALOGE("failed to encode input frame");
-        goto ENCODE_OUT;
+        goto END;
     }
 
     // write output packet to destination.
@@ -454,7 +455,7 @@ bool MpiJpegEncoder::encodeFile(const char *inputFile, const char *outputFile)
     deinitOutputPacket(&pktOut);
     flushBuffer();
 
-ENCODE_OUT:
+END:
     if (buf)
         free(buf);
 
@@ -529,44 +530,60 @@ MPP_RET MpiJpegEncoder::runFrameEnc(MppFrame inFrm, MppPacket outPkt)
 MPP_RET MpiJpegEncoder::cropThumbImage(EncInInfo *aInfoIn, int outAddr)
 {
     MPP_RET ret = MPP_OK;
+    MppBuffer buffer = NULL;
 
-    int src_addr   = aInfoIn->inputPhyAddr;
-    int dst_addr   = outAddr;
-    int src_width  = ALIGN(aInfoIn->width, 2);
-    int src_height = ALIGN(aInfoIn->height, 2);
-    int dst_width  = ALIGN(aInfoIn->thumbWidth, 2);
-    int dst_height = ALIGN(aInfoIn->thumbHeight, 2);
+    int srcAddr   = aInfoIn->inputPhyAddr;
+    int dstAddr   = outAddr;
+    int srcWidth  = ALIGN(aInfoIn->width, 2);
+    int srcHeight = ALIGN(aInfoIn->height, 2);
+    int dstWidth  = ALIGN(aInfoIn->thumbWidth, 2);
+    int dstHeight = ALIGN(aInfoIn->thumbHeight, 2);
 
-    float hScale = (float)src_width / dst_width;
-    float vScale = (float)src_height / dst_height;
+    float hScale = (float)srcWidth / dstWidth;
+    float vScale = (float)srcHeight / dstHeight;
 
     // librga can't support scale largger than 8
     if (hScale > 8 || vScale > 8) {
-        int scale_width, scale_height;
+        int scaleWidth, scaleHeight;
 
         ALOGD("Big YUV scale[%f,%f], will crop twice instead.", hScale, vScale);
 
-        scale_width = ALIGN(src_width / 8, 16);
-        scale_height = ALIGN(src_height / 8, 2);
+        scaleWidth = ALIGN(srcWidth / 8, 16);
+        scaleHeight = ALIGN(srcHeight / 8, 2);
 
-        ret = CommonUtil::cropImage(src_addr, dst_addr,
-                                    src_width, src_height,
-                                    src_width, src_height,
-                                    scale_width, scale_height);
+        ret = mpp_buffer_get(mMemGroup, &buffer, scaleWidth * scaleHeight * 2);
         if (MPP_OK != ret) {
-            ALOGE("failed to crop scale ret %d", ret);
-            return ret;
+            ALOGE("failed to get scale buffer for rga, ret %d", ret);
+            goto END;
         }
 
-        src_addr = dst_addr = outAddr;
-        src_width = scale_width;
-        src_height = scale_height;
+        dstAddr = mpp_buffer_get_fd(buffer);
+
+        ret = CommonUtil::cropImage(srcAddr, dstAddr,
+                                    srcWidth, srcHeight,
+                                    srcWidth, srcHeight,
+                                    scaleWidth, scaleHeight);
+        if (MPP_OK != ret) {
+            ALOGE("failed to crop scale ret %d", ret);
+            goto END;
+        }
+
+        srcAddr = dstAddr;
+        dstAddr = outAddr;
+        srcWidth  = scaleWidth;
+        srcHeight = scaleHeight;
     }
 
-    ret = CommonUtil::cropImage(src_addr, dst_addr,
-                                src_width, src_height,
-                                src_width, src_height,
-                                dst_width, dst_height);
+    ret = CommonUtil::cropImage(srcAddr, dstAddr,
+                                srcWidth, srcHeight,
+                                srcWidth, srcHeight,
+                                dstWidth, dstHeight);
+
+END:
+    if (buffer) {
+        mpp_buffer_put(buffer);
+        buffer = NULL;
+    }
 
     return ret;
 }
@@ -613,28 +630,23 @@ bool MpiJpegEncoder::encodeImageFD(EncInInfo *aInfoIn, EncOutInfo *aOutInfo)
         ret = mpp_buffer_import(&inFrmBuf, &inputCommit);
         if (MPP_OK != ret) {
             ALOGE("failed to import input buffer");
-            goto ENCODE_OUT;
+            goto END;
         }
         mpp_frame_set_buffer(inFrm, inFrmBuf);
     }
 
     {
-        if (1) {
-            // TODO TMP: rk3588: use mpp internal buffer to avoid cache issue.
-            mpp_buffer_get(mMemGroup, &outPktBuf, width * height);
-        } else {
-            /* try import output fd to vpu */
-            MppBufferInfo outputCommit;
-            memset(&outputCommit, 0, sizeof(MppBufferInfo));
-            outputCommit.type = MPP_BUFFER_TYPE_ION;
-            outputCommit.size = aOutInfo->outBufLen;
-            outputCommit.fd = aOutInfo->outputPhyAddr;
+        /* try import output fd to vpu */
+        MppBufferInfo outputCommit;
+        memset(&outputCommit, 0, sizeof(MppBufferInfo));
+        outputCommit.type = MPP_BUFFER_TYPE_ION;
+        outputCommit.size = aOutInfo->outBufLen;
+        outputCommit.fd = aOutInfo->outputPhyAddr;
 
-            ret = mpp_buffer_import(&outPktBuf, &outputCommit);
-            if (MPP_OK != ret) {
-                ALOGE("failed to import output buffer");
-                goto ENCODE_OUT;
-            }
+        ret = mpp_buffer_import(&outPktBuf, &outputCommit);
+        if (MPP_OK != ret) {
+            ALOGE("failed to import output buffer");
+            goto END;
         }
 
         mpp_packet_init_with_buffer(&outPkt, outPktBuf);
@@ -658,7 +670,7 @@ bool MpiJpegEncoder::encodeImageFD(EncInInfo *aInfoIn, EncOutInfo *aOutInfo)
         ALOGD("encod frame get output size %d", pOutPkt->size);
     }
 
-ENCODE_OUT:
+END:
     if (inFrmBuf)
         mpp_buffer_put(inFrmBuf);
     if (outPktBuf)
@@ -715,7 +727,7 @@ bool MpiJpegEncoder::encodeThumb(EncInInfo *aInfoIn, uint8_t **data, int *len)
     ret = mpp_buffer_get(mMemGroup, &inFrmBuf, size);
     if (MPP_OK != ret) {
         ALOGE("failed to get buffer for input frame ret %d", ret);
-        goto ENCODE_OUT;
+        goto END;
     }
 
     inFrmFd = mpp_buffer_get_fd(inFrmBuf);
@@ -724,7 +736,7 @@ bool MpiJpegEncoder::encodeThumb(EncInInfo *aInfoIn, uint8_t **data, int *len)
     ret = cropThumbImage(aInfoIn, inFrmFd);
     if (MPP_OK != ret) {
         ALOGE("failed to crop yuv image before encode thumb.");
-        goto ENCODE_OUT;
+        goto END;
     }
 
     mpp_frame_set_buffer(inFrm, inFrmBuf);
@@ -733,7 +745,7 @@ bool MpiJpegEncoder::encodeThumb(EncInInfo *aInfoIn, uint8_t **data, int *len)
     ret = mpp_buffer_get(mMemGroup, &outPktBuf, width * height);
     if (MPP_OK != ret) {
         ALOGE("failed to get buffer for output packet ret %d", ret);
-        goto ENCODE_OUT;
+        goto END;
     }
     mpp_packet_init_with_buffer(&outPkt, outPktBuf);
     /* NOTE: It is important to clear output packet length */
@@ -757,7 +769,7 @@ bool MpiJpegEncoder::encodeThumb(EncInInfo *aInfoIn, uint8_t **data, int *len)
         ALOGD("get thumb jpg output size %d", length);
     }
 
-ENCODE_OUT:
+END:
     if (inFrmBuf)
         mpp_buffer_put(inFrmBuf);
     if (outPktBuf)
@@ -824,14 +836,14 @@ bool MpiJpegEncoder::encode(EncInInfo *inInfo, EncOutInfo *outInfo)
     ret = RKExifWrapper::getExifHeader(&eParam, &header_buf, &header_size);
     if (!ret || header_size <= 0) {
         ALOGE("failed to get exif header.");
-        goto TASK_OUT;
+        goto END;
     }
 
     /* encode raw image by commit input\output fd */
     ret = encodeImageFD(inInfo, outInfo);
     if (!ret) {
         ALOGE("failed to encode task.");
-        goto TASK_OUT;
+        goto END;
     }
 
     /*
@@ -869,7 +881,7 @@ bool MpiJpegEncoder::encode(EncInInfo *inInfo, EncOutInfo *outInfo)
 
     ALOGD("get output w %d h %d len %d", mWidth, mHeight, outInfo->outBufLen);
 
-TASK_OUT:
+END:
     if (eParam.thumb_data) {
         free(eParam.thumb_data);
         eParam.thumb_data = NULL;
