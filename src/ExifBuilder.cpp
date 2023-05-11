@@ -196,7 +196,7 @@ void exif_release_entry(ExifEntry *entry)
 static void exif_save_data_entry(ExifData *edata, ExifEntry *entry,
                                  unsigned char **buf, int *len, int offset)
 {
-    unsigned int byte_size, ts;
+    unsigned int byte_size;
     // offset to entry value
     unsigned int doff;
 
@@ -217,7 +217,7 @@ static void exif_save_data_entry(ExifData *edata, ExifEntry *entry,
      */
     byte_size = exif_format_get_size(entry->format) * entry->components;
     if (byte_size > 4) {
-        ts = *len + byte_size;
+        unsigned int ts = *len + byte_size;
         unsigned char *t;
         doff = *len - 6;
 

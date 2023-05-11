@@ -31,7 +31,6 @@ static void parseExifInfo(RkExifInfo *exifInfo, ExifData *edata)
     ExifContent *ifd;
     // Max rational size(GPS Info) - 3
     ExifRational rat[3];
-    char data[8];
     char imgDes[5] = "2020";
 
     edata->order = EXIF_BYTE_ORDER_INTEL;
@@ -235,6 +234,8 @@ static void parseExifInfo(RkExifInfo *exifInfo, ExifData *edata)
     ifd = &edata->ifd[EXIF_IFD_GPS];
     ifd->entry_count = 0;
     if (gpsInfo != NULL) {
+        char data[8];
+
         /* --- --- 10.1). GPSVersionID */
         exif_setup_long_entry(&ifd->entries[ifd->entry_count++],
                               EXIF_TAG_GPS_VERSION_ID, EXIF_FORMAT_BYTE,

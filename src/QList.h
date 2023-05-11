@@ -40,8 +40,8 @@ public:
     class Autolock
     {
     public:
-        inline Autolock(Mutex& mutex) : mLock(mutex)  { mLock.lock(); }
-        inline Autolock(Mutex* mutex) : mLock(*mutex) { mLock.lock(); }
+        explicit inline Autolock(Mutex& mutex) : mLock(mutex) { mLock.lock(); }
+        explicit inline Autolock(Mutex* mutex) : mLock(*mutex) { mLock.lock(); }
         inline ~Autolock() { mLock.unlock(); }
     private:
         Mutex& mLock;
@@ -91,7 +91,7 @@ class Condition
 {
 public:
     Condition();
-    Condition(int type);
+    explicit Condition(int type);
     ~Condition();
     int wait(Mutex& mutex);
     int wait(Mutex* mutex);
@@ -148,7 +148,7 @@ struct list_node;
 
 class QList {
 public:
-    QList(node_destructor func = NULL);
+    explicit QList(node_destructor func = NULL);
     ~QList();
 
     // for FIFO or FILO implement

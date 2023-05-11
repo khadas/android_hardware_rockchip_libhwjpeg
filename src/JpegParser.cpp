@@ -115,7 +115,6 @@ MPP_RET jpeg_parser_get_dimens(char *buf, size_t buf_size,
                                uint32_t *out_width, uint32_t *out_height)
 {
     const uint8_t *buf_end, *buf_ptr;
-    int32_t start_code;
     uint8_t *ubuf = (uint8_t*)buf;
 
     buf_ptr = ubuf;
@@ -129,7 +128,7 @@ MPP_RET jpeg_parser_get_dimens(char *buf, size_t buf_size,
     while (buf_ptr < buf_end) {
         int section_finish = 1;
         /* find start marker */
-        start_code = jpeg_parser_find_marker(&buf_ptr, buf_end);
+        int32_t start_code = jpeg_parser_find_marker(&buf_ptr, buf_end);
         if (start_code < 0) {
             ALOGV("start code not found");
         }
