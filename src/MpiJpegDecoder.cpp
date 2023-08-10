@@ -333,10 +333,16 @@ MPP_RET MpiJpegDecoder::sendpacket(char *inputBuf, size_t length, int outPhyAddr
     hstride = ALIGN(picHeight, 16);
 
     /* reinit mpp decoder when get resolution or format info-change */
-    if (mDecWidth != 0 && mDecHeight != 0
-        && (mDecWidth != picWidth || mDecHeight != picHeight)) {
-        ALOGD("found info-change, reInit decoder.");
-        reInitDecoder();
+    if (mDecWidth != picWidth || mDecHeight != picHeight) {
+        if (mDecWidth != 0 && mDecHeight != 0) {
+            ALOGD("info-change with old dimensions(%dx%d)", mDecWidth, mDecHeight);
+            ALOGD("info-change with new dimensions(%dx%d)", picWidth, picHeight);
+            reInitDecoder();
+        } else {
+            ALOGD("init decoder, w %d h %d", picWidth, picHeight);
+        }
+        mDecWidth = picWidth;
+        mDecHeight = picHeight;
     }
 
     ret = mpp_buffer_get(mPacketGroup, &inPktBuf, length);
@@ -421,8 +427,6 @@ MPP_RET MpiJpegDecoder::sendpacket(char *inputBuf, size_t length, int outPhyAddr
     if (MPP_OK != ret)
         ALOGE("failed to enqueue input_task");
 
-    mDecWidth = picWidth;
-    mDecHeight = picHeight;
     mPacketCount++;
 
 SEND_OUT:
