@@ -10,7 +10,7 @@ fi
 
 # Shallow Git clones (--depth) do not have the N tag:
 # use 'git-YYYY-MM-DD-hhhhhhh'.
-test "$revision" || revision=$(git log -1 --date=short --pretty=format:"git-%h author: %an %cd %s")
+test "$revision" || revision=$(git log -1 --date=short --pretty=format:"git-%h author: %an %cd %s"|sed "s/\"//g")
 
 # no revision number found
 test "$revision" || revision=$(cat RELEASE 2> /dev/null)
@@ -31,12 +31,6 @@ fi
 # releases extract the version number from the VERSION file
 version=$(cat VERSION 2> /dev/null)
 test "$version" || version=$revision
-
-# query compiling date
-build_date=`date +"%Y-%m-%d %H:%M:%S"`
-
-# query compiling author
-build_name=`cat ~/.gitconfig | sed -n "s/^\(.*\)name = \(.*\)/\2/p" | cut -c 1-3`
 
 DST_VERSION_FILE=`pwd`/src/version.h
 
